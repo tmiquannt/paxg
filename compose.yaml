@@ -1,0 +1,63 @@
+name: paxg-mini-erp-local
+services:
+  database:
+    image: mysql:8.0@sha256:7a9d63525e8072408862dd62226440db869e745e37f36968b26e3ef03d6e9641
+    environment:
+      MYSQL_ROOT_PASSWORD: local-only-root-not-production
+      MYSQL_DATABASE: mini_erp_local
+      MYSQL_USER: mini_erp_local
+      MYSQL_PASSWORD: local-only-erp-not-production
+    ports:
+      - "127.0.0.1:13368:3306"
+    volumes:
+      - ./.runtime/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 2s
+      timeout: 2s
+      retries: 40
+  wordpress:
+    image: wordpress:6.8.3-php8.3-apache@sha256:30bff39330d1693b0ce13d32fc9b7bb67193064f040b7d60d3494e136fa599d4
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18088:80"
+    environment:
+      WORDPRESS_DB_HOST: database:3306
+      WORDPRESS_DB_USER: mini_erp_local
+      WORDPRESS_DB_PASSWORD: local-only-erp-not-production
+      WORDPRESS_DB_NAME: mini_erp_local
+      WORDPRESS_TABLE_PREFIX: paxg_
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ENVIRONMENT_TYPE', 'local');
+        define('DISALLOW_FILE_EDIT', true);
+        define('AUTOMATIC_UPDATER_DISABLED', true);
+        define('WP_HOME', 'http://127.0.0.1:18088');
+        define('WP_SITEURL', 'http://127.0.0.1:18088');
+      ERP_LOCAL_ADMIN_PASSWORD: &local_admin_password local-only-demo-not-production-2026
+    volumes:
+      - ./.runtime/wordpress:/var/www/html
+      - ./wp-content/plugins/mini-erp:/var/www/html/wp-content/plugins/mini-erp:ro
+      - ./scripts:/opt/erp-scripts:ro
+    healthcheck:
+      test: ["CMD", "php", "/opt/erp-scripts/health-local.php"]
+      interval: 3s
+      timeout: 5s
+      start_period: 30s
+      retries: 40
+  tools:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.tools
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    working_dir: /workspace
+    entrypoint: []
+    command: ["php", "vendor/bin/phpunit"]
+    environment:
+      COMPOSER_HOME: /workspace/.cache/composer-docker
+      COMPOSER_CACHE_DIR: /workspace/.cache/composer-downloads
+      ERP_LOCAL_ADMIN_PASSWORD: *local_admin_password
+    volumes:
+      - .:/workspace

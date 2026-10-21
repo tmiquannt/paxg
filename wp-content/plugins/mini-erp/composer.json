@@ -1,0 +1,13 @@
+{
+  "name": "internal/mini-erp-plugin",
+  "description": "WordPress Mini ERP plugin runtime dependencies",
+  "type": "wordpress-plugin",
+  "require": {
+    "php": ">=8.3",
+    "dompdf/dompdf": "^3.1.6"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {}
+  }
+}

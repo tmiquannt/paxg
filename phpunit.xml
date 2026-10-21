@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php" colors="true" cacheDirectory=".phpunit.cache" failOnWarning="true">
+  <testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite></testsuites>
+  <source><include><directory>wp-content/plugins/mini-erp/src</directory></include></source>
+</phpunit>

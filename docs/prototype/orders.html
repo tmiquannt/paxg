@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đơn bán — Mini ERP prototype</title>
+  <style>
+    .erp-app {
+      --surface: #fff;
+      --canvas: #fafafa;
+      --subtle: #f1f1f3;
+      --text: #18181b;
+      --muted: #68686f;
+      --border: #dadadd;
+      --accent: #5e6ad2;
+      --accent-soft: #eff0ff;
+      --success: #246b45;
+      --success-soft: #edf7f0;
+      --warning: #805c12;
+      --warning-soft: #fbf5e8;
+      --danger: #a33b3b;
+      --danger-soft: #fff1f0;
+      color: var(--text);
+      background: var(--canvas);
+      min-height: 100vh;
+      font: 13px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+    .erp-app *, .erp-app *::before, .erp-app *::after { box-sizing: border-box; }
+    .erp-app button, .erp-app input, .erp-app select, .erp-app textarea { font: inherit; }
+    .erp-app button { color: inherit; }
+    .erp-app a { color: inherit; text-decoration: none; }
+    .erp-app .shell { display: grid; grid-template-columns: 212px minmax(0, 1fr); min-height: 100vh; }
+    .erp-app .wp-nav { position: relative; background: #f6f6f7; border-right: 1px solid var(--border); padding: 16px 10px; }
+    .erp-app .brand { display: flex; align-items: center; gap: 9px; margin: 0 8px 22px; font-weight: 600; letter-spacing: -.02em; }
+    .erp-app .brand-mark { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #aaaab0; border-radius: 5px; color: #44444a; font-size: 11px; }
+    .erp-app .site-label { padding: 0 9px 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .erp-app .nav-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+    .erp-app .nav-link { display: flex; align-items: center; min-height: 32px; padding: 0 9px; border-radius: 4px; color: #424249; }
+    .erp-app .nav-link:hover { background: #ececef; }
+    .erp-app .nav-link[aria-current="page"] { color: var(--text); background: #e9e9ec; font-weight: 600; }
+    .erp-app .nav-section { margin: 19px 9px 7px; color: var(--muted); font-size: 11px; }
+    .erp-app .user-block { position: absolute; bottom: 14px; width: 190px; padding: 10px 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+    .erp-app .main { min-width: 0; padding: 0 28px 36px; }
+    .erp-app .topbar { display: flex; justify-content: space-between; align-items: center; min-height: 48px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+    .erp-app .crumbs { display: flex; align-items: center; gap: 8px; }
+    .erp-app .crumb-separator { color: #a0a0a6; }
+    .erp-app .account { display: flex; gap: 8px; align-items: center; }
+    .erp-app .avatar { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--border); border-radius: 50%; background: white; color: #4b4b51; font-size: 10px; font-weight: 600; }
+    .erp-app .content { max-width: 1540px; margin: 0 auto; }
+    .erp-app .page-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 23px 0 17px; }
+    .erp-app h1 { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.025em; }
+    .erp-app .page-subtitle { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .erp-app .button { display: inline-flex; justify-content: center; align-items: center; gap: 7px; min-height: 34px; padding: 0 11px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; font-weight: 500; white-space: nowrap; }
+    .erp-app .button:hover { background: #f7f7f8; }
+    .erp-app .button:focus-visible, .erp-app input:focus-visible, .erp-app select:focus-visible, .erp-app textarea:focus-visible, .erp-app .nav-link:focus-visible, .erp-app .order-row:focus-visible, .erp-app .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .erp-app .button-primary { border-color: #4d59bd; background: var(--accent); color: #fff; }
+    .erp-app .button-primary:hover { background: #4f5bc2; }
+    .erp-app .button-quiet { border-color: transparent; background: transparent; }
+    .erp-app .button-danger { color: var(--danger); }
+    .erp-app .demo-note { display: flex; align-items: center; gap: 8px; margin: 1px 0 14px; color: #55555c; font-size: 11px; }
+    .erp-app .demo-tag { padding: 2px 6px; border: 1px solid var(--border); border-radius: 3px; background: #fff; font-weight: 600; letter-spacing: .02em; }
+    .erp-app .workspace { display: grid; grid-template-columns: minmax(570px, 1.3fr) minmax(360px, .9fr); min-height: 620px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); overflow: hidden; }
+    .erp-app .list-pane { min-width: 0; border-right: 1px solid var(--border); }
+    .erp-app .toolbar { display: flex; align-items: center; gap: 7px; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+    .erp-app .search-wrap { position: relative; flex: 1; min-width: 150px; }
+    .erp-app .search-mark { position: absolute; top: 9px; left: 10px; color: var(--muted); font-size: 12px; pointer-events: none; }
+    .erp-app .search { width: 100%; height: 34px; padding: 0 10px 0 29px; border: 1px solid var(--border); border-radius: 5px; background: #fff; }
+    .erp-app .ship-form { padding: 0 16px 15px; }
+    .erp-app .ship-form .section-title { padding: 0; }
+    .erp-app .ship-form .ship-quantity { width: 112px; height: 32px; padding: 0 8px; }
+    .erp-app .filter { height: 34px; max-width: 145px; padding: 0 25px 0 9px; border: 1px solid var(--border); border-radius: 5px; background: #fff; color: #45454b; }
+    .erp-app .tabs { display: flex; align-items: center; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .erp-app .tab { min-height: 31px; padding: 0 9px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .erp-app .tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); font-weight: 600; }
+    .erp-app .tab-count { margin-left: 4px; color: var(--muted); font-size: 11px; font-weight: 400; }
+    .erp-app .table-wrap { overflow-x: auto; }
+    .erp-app table { width: 100%; border-collapse: collapse; }
+    .erp-app th { height: 34px; padding: 0 10px; border-bottom: 1px solid var(--border); background: #fcfcfc; color: #74747a; text-align: left; font-size: 11px; font-weight: 500; white-space: nowrap; }
+    .erp-app td { height: 45px; padding: 5px 10px; border-bottom: 1px solid #ededee; vertical-align: middle; }
+    .erp-app .th-sort { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+    .erp-app .order-row { cursor: pointer; }
+    .erp-app .order-row:hover { background: #fafafd; }
+    .erp-app .order-row[data-selected="true"] { background: #f1f2ff; }
+    .erp-app .order-select { display: inline-grid; gap: 2px; padding: 2px 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+    .erp-app .order-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+    .erp-app .order-code { display: block; color: #292a31; font-weight: 600; white-space: nowrap; }
+    .erp-app .cell-sub { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .erp-app .money, .erp-app .amount, .erp-app .tabular { font-variant-numeric: tabular-nums; }
+    .erp-app .money { text-align: right; white-space: nowrap; }
+    .erp-app .status { display: inline-flex; align-items: center; min-height: 21px; padding: 1px 6px; border: 1px solid #e2e2e5; border-radius: 4px; background: #fafafa; color: #55555b; font-size: 11px; white-space: nowrap; }
+    .erp-app .status-pending { border-color: #eadcb9; background: var(--warning-soft); color: #72500a; }
+    .erp-app .status-confirmed { border-color: #d6e9dc; background: var(--success-soft); color: #28633f; }
+    .erp-app .status-partial { border-color: #d7e4f5; background: #eff6ff; color: #315b8a; }
+    .erp-app .status-shipped { border-color: #d9dff0; background: #f1f3fa; color: #465780; }
+    .erp-app .status-draft { color: #626269; }
+    .erp-app .pagination { display: flex; align-items: center; justify-content: space-between; min-height: 42px; padding: 0 11px; color: var(--muted); font-size: 11px; }
+    .erp-app .page-actions { display: flex; gap: 5px; }
+    .erp-app .page-actions .button { min-height: 27px; padding: 0 8px; font-size: 11px; }
+    .erp-app .detail-pane { min-width: 0; }
+    .erp-app .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 16px 13px; border-bottom: 1px solid var(--border); }
+    .erp-app .detail-id { margin: 0 0 7px; font-size: 16px; line-height: 1.2; font-weight: 600; letter-spacing: -.02em; }
+    .erp-app .detail-actions { display: flex; gap: 5px; }
+    .erp-app .detail-actions .button { min-height: 29px; padding: 0 8px; font-size: 11px; }
+    .erp-app .detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; padding: 13px 16px; border-bottom: 1px solid #ededee; }
+    .erp-app .meta-label { display: block; color: var(--muted); font-size: 11px; }
+    .erp-app .meta-value { display: block; margin-top: 3px; font-weight: 500; }
+    .erp-app .section-title { display: flex; justify-content: space-between; align-items: center; margin: 0; padding: 12px 16px 7px; font-size: 12px; font-weight: 600; }
+    .erp-app .items-table th { height: 28px; padding: 0 16px; background: white; font-size: 10px; }
+    .erp-app .items-table td { height: 40px; padding: 5px 16px; font-size: 12px; }
+    .erp-app .items-table .item-name { font-weight: 500; }
+    .erp-app .totals { display: grid; gap: 7px; padding: 11px 16px 13px; border-bottom: 1px solid #ededee; }
+    .erp-app .total-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #5e5e65; }
+    .erp-app .total-line strong { color: var(--text); font-weight: 500; }
+    .erp-app .grand-total { margin-top: 3px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--text); font-weight: 600; }
+    .erp-app .grand-total strong { font-size: 15px; font-weight: 600; }
+    .erp-app .history { display: grid; gap: 0; padding: 1px 16px 13px; }
+    .erp-app .history-item { display: grid; grid-template-columns: 13px 1fr auto; gap: 8px; align-items: start; min-height: 37px; color: #4e4e55; font-size: 11px; }
+    .erp-app .history-dot { width: 7px; height: 7px; margin: 5px 0 0 2px; border: 1px solid #97979e; border-radius: 50%; background: white; }
+    .erp-app .history-time { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .erp-app .alert { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 12px 0; padding: 9px 11px; border: 1px solid var(--border); border-radius: 5px; background: white; }
+    .erp-app .alert-success { border-color: #cce5d4; background: var(--success-soft); color: var(--success); }
+    .erp-app .alert-error { border-color: #f0cccc; background: var(--danger-soft); color: #812f2f; }
+    .erp-app .state-panel { grid-column: 1 / -1; display: grid; place-content: center; justify-items: center; min-height: 470px; padding: 28px; text-align: center; }
+    .erp-app .state-panel h2 { margin: 0 0 5px; font-size: 15px; font-weight: 600; }
+    .erp-app .state-panel p { max-width: 380px; margin: 0 0 14px; color: var(--muted); }
+    .erp-app .state-symbol { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 50%; background: #fff; color: #64646b; font-weight: 600; }
+    .erp-app .skeleton { height: 11px; margin: 11px 0; border-radius: 3px; background: #ededee; }
+    .erp-app .skeleton-group { width: min(820px, 80vw); }
+    .erp-app .skeleton-42 { width: 42%; }
+    .erp-app .skeleton-78 { width: 78%; }
+    .erp-app .skeleton-row { width: 90%; height: 37px; border-bottom: 1px solid #ededee; }
+    .erp-app .form-pane { padding: 16px; }
+    .erp-app .form-pane h2 { margin: 0; font-size: 16px; font-weight: 600; }
+    .erp-app .form-intro { margin: 4px 0 16px; color: var(--muted); }
+    .erp-app .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .erp-app .field { display: grid; gap: 5px; }
+    .erp-app .field-wide { grid-column: 1 / -1; }
+    .erp-app .field label { color: #55555c; font-size: 11px; font-weight: 500; }
+    .erp-app .field input, .erp-app .field select, .erp-app .field textarea { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 4px; background: white; }
+    .erp-app .field textarea { min-height: 58px; resize: vertical; }
+    .erp-app .form-actions { display: flex; gap: 7px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .erp-app .prototype-tools { display: flex; justify-content: flex-end; align-items: center; gap: 7px; padding-top: 10px; color: var(--muted); font-size: 11px; }
+    .erp-app .prototype-tools select { height: 29px; padding: 0 22px 0 7px; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--muted); font-size: 11px; }
+    .erp-app .screen-reader-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .erp-app .hidden { display: none !important; }
+    @media (max-width: 1190px) {
+      .erp-app .shell { grid-template-columns: 58px minmax(0, 1fr); }
+      .erp-app .wp-nav { padding-right: 6px; padding-left: 6px; }
+      .erp-app .brand { justify-content: center; margin: 0 0 21px; }
+      .erp-app .brand-name, .erp-app .site-label, .erp-app .nav-label, .erp-app .nav-section, .erp-app .user-copy { display: none; }
+      .erp-app .nav-link { justify-content: center; padding: 0; font-size: 0; }
+      .erp-app .nav-link::first-letter { font-size: 14px; }
+      .erp-app .user-block { width: 45px; text-align: center; }
+    }
+    @media (max-width: 980px) {
+      .erp-app .main { padding-right: 16px; padding-left: 16px; }
+      .erp-app .workspace { grid-template-columns: 1fr; }
+      .erp-app .list-pane { border-right: 0; border-bottom: 1px solid var(--border); }
+      .erp-app .detail-pane { min-height: 400px; }
+    }
+    @media (max-width: 620px) {
+      .erp-app .shell { grid-template-columns: 1fr; }
+      .erp-app .wp-nav { display: none; }
+      .erp-app .main { padding: 0 10px 22px; }
+      .erp-app .topbar { min-height: 42px; }
+      .erp-app .page-header { align-items: flex-start; padding: 18px 0 13px; }
+      .erp-app h1 { font-size: 18px; }
+      .erp-app .page-subtitle { max-width: 225px; }
+      .erp-app .page-header > .button { min-height: 31px; padding: 0 8px; }
+      .erp-app .toolbar { flex-wrap: wrap; }
+      .erp-app .search-wrap { flex-basis: 100%; }
+      .erp-app .filter { flex: 1; max-width: none; }
+      .erp-app .workspace { min-height: 0; }
+      .erp-app .table-wrap { overflow-x: auto; }
+      .erp-app .orders-table { min-width: 610px; }
+      .erp-app .detail-meta { gap: 10px; }
+      .erp-app .prototype-tools { justify-content: flex-start; flex-wrap: wrap; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .erp-app *, .erp-app *::before, .erp-app *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="erp-app">
+    <div class="shell">
+      <aside class="wp-nav" aria-label="Điều hướng quản trị">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">M</span><span class="brand-name">Mini ERP</span></div>
+        <div class="site-label">Nghiệp vụ</div>
+        <nav aria-label="Phân hệ ERP">
+          <ul class="nav-list">
+            <li><a class="nav-link" href="#dashboard"><span class="nav-label">Tổng quan</span></a></li>
+            <li><a class="nav-link" href="#orders" aria-current="page"><span class="nav-label">Đơn bán</span></a></li>
+            <li><a class="nav-link" href="#purchases"><span class="nav-label">Đơn mua</span></a></li>
+            <li><a class="nav-link" href="#inventory"><span class="nav-label">Kho hàng</span></a></li>
+            <li><a class="nav-link" href="#products"><span class="nav-label">Sản phẩm</span></a></li>
+            <li><a class="nav-link" href="#customers"><span class="nav-label">Khách hàng</span></a></li>
+          </ul>
+          <div class="nav-section">Tài chính</div>
+          <ul class="nav-list">
+            <li><a class="nav-link" href="#invoices"><span class="nav-label">Hóa đơn</span></a></li>
+            <li><a class="nav-link" href="#payments"><span class="nav-label">Thanh toán</span></a></li>
+            <li><a class="nav-link" href="#cash"><span class="nav-label">Sổ quỹ</span></a></li>
+            <li><a class="nav-link" href="#reports"><span class="nav-label">Báo cáo</span></a></li>
+          </ul>
+        </nav>
+        <div class="user-block"><span class="user-copy">Đang xem với vai trò Sales</span><span class="avatar" aria-hidden="true">SA</span></div>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div class="crumbs"><span>Mini ERP</span><span class="crumb-separator">/</span><span>Đơn bán</span></div>
+          <div class="account"><span class="user-copy">Nguyễn An · Sales</span><span class="avatar" aria-label="Nguyễn An">NA</span></div>
+        </div>
+        <div class="content">
+          <header class="page-header">
+            <div><h1>Đơn bán</h1><p class="page-subtitle">Theo dõi đơn hàng và xử lý bước tiếp theo.</p></div>
+            <button class="button button-primary" id="new-order" type="button">Tạo đơn bán</button>
+          </header>
+          <div class="demo-note"><span class="demo-tag">PROTOTYPE</span><span>Dữ liệu mẫu · Thay đổi chỉ lưu trong phiên trình duyệt này</span></div>
+          <div id="notice" class="alert hidden" role="status" aria-live="polite"></div>
+
+          <section class="workspace" aria-label="Danh sách và chi tiết đơn bán">
+            <div class="list-pane" id="list-pane">
+              <div class="toolbar">
+                <label class="search-wrap"><span class="search-mark" aria-hidden="true">⌕</span><span class="screen-reader-only">Tìm theo mã đơn hoặc khách hàng</span><input id="search" class="search" type="search" placeholder="Tìm mã đơn, khách hàng…" autocomplete="off"></label>
+                <label><span class="screen-reader-only">Lọc theo kho</span><select id="warehouse-filter" class="filter"><option value="">Tất cả kho</option><option>Kho Hà Nội</option><option>Kho Hồ Chí Minh</option></select></label>
+              </div>
+              <div class="tabs" role="tablist" aria-label="Lọc trạng thái đơn bán">
+                <button class="tab" role="tab" aria-selected="true" data-status="all" type="button">Tất cả <span class="tab-count" data-count="all">6</span></button>
+                <button class="tab" role="tab" aria-selected="false" data-status="DRAFT" type="button">Nháp <span class="tab-count" data-count="DRAFT">1</span></button>
+                <button class="tab" role="tab" aria-selected="false" data-status="PENDING_APPROVAL" type="button">Chờ duyệt <span class="tab-count" data-count="PENDING_APPROVAL">2</span></button>
+                <button class="tab" role="tab" aria-selected="false" data-status="CONFIRMED" type="button">Đã xác nhận <span class="tab-count" data-count="CONFIRMED">1</span></button>
+                <button class="tab" role="tab" aria-selected="false" data-status="PARTIALLY_SHIPPED" type="button">Giao một phần <span class="tab-count" data-count="PARTIALLY_SHIPPED">1</span></button>
+                <button class="tab" role="tab" aria-selected="false" data-status="SHIPPED" type="button">Đã giao <span class="tab-count" data-count="SHIPPED">1</span></button>
+              </div>
+              <div id="table-state" class="table-wrap">
+                <table class="orders-table">
+                  <thead><tr><th scope="col">Mã đơn / ngày tạo</th><th scope="col">Khách hàng</th><th scope="col">Kho</th><th scope="col"><button class="th-sort" id="sort-amount" type="button">Tổng tiền <span aria-hidden="true">↕</span></button></th><th scope="col">Trạng thái</th></tr></thead>
+                  <tbody id="orders-body"></tbody>
+                </table>
+              </div>
+              <div class="pagination"><span id="result-count">1–6 trong 6 đơn</span><div class="page-actions"><button class="button" type="button" disabled aria-label="Trang trước">‹</button><button class="button" type="button" disabled aria-label="Trang sau">›</button></div></div>
+            </div>
+            <div class="detail-pane" id="detail-pane" aria-live="polite"></div>
+          </section>
+          <div class="prototype-tools">
+            <label for="preview-state">Mô phỏng trạng thái:</label>
+            <select id="preview-state">
+              <option value="normal">Bình thường</option><option value="loading">Đang tải</option><option value="empty">Không có dữ liệu</option><option value="error">Lỗi tải dữ liệu</option><option value="forbidden">Không có quyền</option><option value="success">Thao tác thành công</option>
+            </select>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const orders = [
+        { id: 'SO-2026-0142', customer: 'Công ty Thiết bị Minh Long', warehouse: 'Kho Hà Nội', date: '20/10/2026', amount: 48600000, status: 'PENDING_APPROVAL', creator: 'Nguyễn An', discount: 1600000, tax: 0, items: [{ name: 'Máy bơm công nghiệp P-40', sku: 'PMP-040', qty: '4 cái', unit: 11200000 }, { name: 'Bộ lọc nước công nghiệp', sku: 'FLT-220', qty: '2 bộ', unit: 2700000 }] },
+        { id: 'SO-2026-0141', customer: 'Cơ khí Thành Công', warehouse: 'Kho Hà Nội', date: '20/10/2026', amount: 12500000, status: 'PARTIALLY_SHIPPED', creator: 'Nguyễn An', discount: 0, tax: 0, items: [{ name: 'Động cơ điện 3 pha', sku: 'MTR-075', qty: '2 cái', unit: 6250000, shippedQty: 1 }], shipments: [{ number: 'SH-2026-0001', date: '20/10/2026', items: [{ sku: 'MTR-075', qty: 1 }] }] },
+        { id: 'SO-2026-0140', customer: 'Công ty Đại Phát', warehouse: 'Kho Hồ Chí Minh', date: '19/10/2026', amount: 8320000, status: 'PENDING_APPROVAL', creator: 'Lê Minh', discount: 320000, tax: 0, items: [{ name: 'Van bi inox DN50', sku: 'VAL-050', qty: '8 cái', unit: 1080000 }] },
+        { id: 'SO-2026-0139', customer: 'Xưởng Cơ điện An Bình', warehouse: 'Kho Hồ Chí Minh', date: '19/10/2026', amount: 27500000, status: 'SHIPPED', creator: 'Nguyễn An', discount: 500000, tax: 0, items: [{ name: 'Máy nén khí trục vít', sku: 'AIR-015', qty: '1 cái', unit: 28000000 }] },
+        { id: 'SO-2026-0138', customer: 'Công ty Vạn Tín', warehouse: 'Kho Hà Nội', date: '18/10/2026', amount: 6400000, status: 'DRAFT', creator: 'Nguyễn An', discount: 0, tax: 0, items: [{ name: 'Dây curoa công nghiệp B-72', sku: 'BEL-B72', qty: '20 cái', unit: 320000 }] },
+        { id: 'SO-2026-0137', customer: 'Công ty Thiết bị An Khang', warehouse: 'Kho Hồ Chí Minh', date: '17/10/2026', amount: 18400000, status: 'CONFIRMED', creator: 'Trần Huy', discount: 0, tax: 0, items: [{ name: 'Máy hàn MIG 350A', sku: 'WLD-350', qty: '2 cái', unit: 9200000 }] }
+      ];
+      const labels = { DRAFT: 'Nháp', PENDING_APPROVAL: 'Chờ duyệt', CONFIRMED: 'Đã xác nhận', PARTIALLY_SHIPPED: 'Giao một phần', SHIPPED: 'Đã giao' };
+      const products = [
+        { sku: 'PMP-040', name: 'Máy bơm công nghiệp P-40', unit: 11200000 },
+        { sku: 'FLT-220', name: 'Bộ lọc nước công nghiệp', unit: 2700000 },
+        { sku: 'MTR-075', name: 'Động cơ điện 3 pha', unit: 6250000 },
+        { sku: 'VAL-050', name: 'Van bi inox DN50', unit: 1080000 },
+        { sku: 'AIR-015', name: 'Máy nén khí trục vít', unit: 28000000 },
+        { sku: 'BEL-B72', name: 'Dây curoa công nghiệp B-72', unit: 320000 },
+        { sku: 'WLD-350', name: 'Máy hàn MIG 350A', unit: 9200000 }
+      ];
+      const money = value => new Intl.NumberFormat('vi-VN').format(value) + ' ₫';
+      const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+      let activeStatus = 'all';
+      let selectedId = orders[0].id;
+      let shippingOrderId = null;
+      let nextShipmentNumber = 2;
+      let sortDescending = true;
+      let viewMode = new URLSearchParams(location.search).get('state') || 'normal';
+      let body;
+      let detail;
+      let tableState;
+      const workspace = document.querySelector('.workspace');
+      const notice = document.getElementById('notice');
+
+      function bindWorkspace() {
+        body = document.getElementById('orders-body');
+        detail = document.getElementById('detail-pane');
+        tableState = document.getElementById('table-state');
+      }
+      function syncTabs(focusTab = null) {
+        const tabs = [...document.querySelectorAll('.tab')];
+        tabs.forEach(tab => {
+          const selected = tab.dataset.status === activeStatus;
+          tab.setAttribute('aria-selected', String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+        });
+        if (focusTab) focusTab.focus();
+      }
+
+      function statusClass(status) {
+        return ({ DRAFT: 'status-draft', PENDING_APPROVAL: 'status-pending', CONFIRMED: 'status-confirmed', PARTIALLY_SHIPPED: 'status-partial', SHIPPED: 'status-shipped' })[status] || '';
+      }
+      function orderedQty(item) { return Number.parseFloat(String(item.qty).match(/[0-9]+(?:[.,][0-9]+)?/)?.[0]?.replace(',', '.')) || 0; }
+      function remainingQty(item) { return Math.max(0, Math.round((orderedQty(item) - (Number(item.shippedQty) || 0)) * 1000) / 1000); }
+      function formatQty(value) { return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(value); }
+      function filteredOrders() {
+        const query = document.getElementById('search').value.trim().toLocaleLowerCase('vi');
+        const warehouse = document.getElementById('warehouse-filter').value;
+        return orders.filter(order => (activeStatus === 'all' || order.status === activeStatus)
+          && (!warehouse || order.warehouse === warehouse)
+          && (!query || `${order.id} ${order.customer}`.toLocaleLowerCase('vi').includes(query)))
+          .sort((a, b) => (a.amount - b.amount) * (sortDescending ? -1 : 1));
+      }
+      function renderTable() {
+        if (!body || !detail) return;
+        const visible = filteredOrders();
+        body.innerHTML = visible.map(order => `<tr class="order-row" data-row-order="${escapeHtml(order.id)}" data-selected="${order.id === selectedId}">
+          <td><button class="order-select" type="button" data-order="${escapeHtml(order.id)}" aria-label="Mở đơn ${escapeHtml(order.id)} của ${escapeHtml(order.customer)}"><span class="order-code">${escapeHtml(order.id)}</span><span class="cell-sub">${escapeHtml(order.date)}</span></button></td>
+          <td>${escapeHtml(order.customer)}</td><td>${escapeHtml(order.warehouse.replace('Kho ', ''))}</td>
+          <td class="money">${money(order.amount)}</td><td><span class="status ${statusClass(order.status)}">${labels[order.status]}</span></td></tr>`).join('');
+        document.getElementById('result-count').textContent = visible.length ? `1–${visible.length} trong ${visible.length} đơn` : '0 đơn';
+        if (visible.length && !visible.some(order => order.id === selectedId)) selectedId = visible[0].id;
+        if (visible.length) renderDetail(orders.find(order => order.id === selectedId));
+        else detail.innerHTML = '<div class="state-panel"><span class="state-symbol" aria-hidden="true">0</span><h2>Không tìm thấy đơn bán</h2><p>Thử đổi từ khóa hoặc bộ lọc để xem kết quả khác.</p><button class="button" type="button" data-clear-filters>Xóa bộ lọc</button></div>';
+        document.querySelectorAll('[data-count]').forEach(node => {
+          const status = node.dataset.count;
+          node.textContent = status === 'all' ? orders.length : orders.filter(order => order.status === status).length;
+        });
+      }
+      function renderDetail(order) {
+        if (!order) return;
+        const action = order.status === 'PENDING_APPROVAL'
+          ? '<button class="button button-primary" data-action="approve">Duyệt đơn</button><button class="button button-danger" data-action="return">Trả lại</button>'
+          : order.status === 'DRAFT'
+            ? '<button class="button button-primary" data-action="submit">Gửi duyệt</button><button class="button" data-action="edit">Sửa nháp</button>'
+            : ['CONFIRMED', 'PARTIALLY_SHIPPED'].includes(order.status)
+              ? `<button class="button button-primary" data-action="ship">${order.status === 'CONFIRMED' ? 'Ghi nhận giao hàng' : 'Giao tiếp'}</button>`
+              : '<button class="button" disabled>Đã hoàn tất</button>';
+        const history = `${(order.shipments || []).map(shipment => `<div class="history-item"><span class="history-dot"></span><span>${escapeHtml(shipment.number)} · Đã giao ${shipment.items.map(line => `${formatQty(line.qty)} ${escapeHtml(order.items.find(item => item.sku === line.sku)?.qty.split(' ').slice(1).join(' ') || '')}`).join(', ')}</span><span class="history-time">${escapeHtml(shipment.date)}</span></div>`).join('')}${order.status === 'PENDING_APPROVAL' ? `<div class="history-item"><span class="history-dot"></span><span>Đơn được gửi để chờ duyệt</span><span class="history-time">${escapeHtml(order.date)}</span></div>` : ''}<div class="history-item"><span class="history-dot"></span><span>Tạo bởi ${escapeHtml(order.creator)}</span><span class="history-time">${escapeHtml(order.date)}</span></div>`;
+        const shippingForm = shippingOrderId === order.id ? `<form class="ship-form" id="shipment-form"><h3 class="section-title">Giao hàng đợt này</h3><p class="cell-sub">Nhập số lượng theo từng dòng. Prototype chỉ mô phỏng thao tác, chưa kiểm tra hay cập nhật tồn kho thật.</p><div class="table-wrap"><table class="items-table"><thead><tr><th>Mặt hàng</th><th>Còn phải giao</th><th>Giao đợt này</th></tr></thead><tbody>${order.items.map(item => `<tr><td><span class="item-name">${escapeHtml(item.name)}</span><span class="cell-sub">${escapeHtml(item.sku)}</span></td><td>${formatQty(remainingQty(item))}</td><td><label class="screen-reader-only" for="ship-${escapeHtml(item.sku)}">Số lượng giao ${escapeHtml(item.name)}</label><input id="ship-${escapeHtml(item.sku)}" class="search ship-quantity" type="number" inputmode="decimal" min="0" max="${remainingQty(item)}" step="0.001" value="0" data-ship-sku="${escapeHtml(item.sku)}"></td></tr>`).join('')}</tbody></table></div><div class="detail-actions"><button class="button" type="button" data-action="cancel-shipment">Hủy</button><button class="button button-primary" type="button" data-action="post-shipment">Ghi nhận đợt giao</button></div></form>` : '';
+        detail.innerHTML = `<header class="detail-header"><div><h2 class="detail-id">${escapeHtml(order.id)}</h2><span class="status ${statusClass(order.status)}">${labels[order.status]}</span></div><div class="detail-actions">${action}</div></header>
+          <div class="detail-meta"><div><span class="meta-label">Khách hàng</span><span class="meta-value">${escapeHtml(order.customer)}</span></div><div><span class="meta-label">Kho xuất</span><span class="meta-value">${escapeHtml(order.warehouse)}</span></div><div><span class="meta-label">Ngày tạo</span><span class="meta-value">${escapeHtml(order.date)}</span></div><div><span class="meta-label">Người tạo</span><span class="meta-value">${escapeHtml(order.creator)}</span></div></div>
+          <h3 class="section-title">Sản phẩm <span class="cell-sub">${order.items.length} dòng</span></h3>
+          <div class="table-wrap"><table class="items-table"><thead><tr><th scope="col">Mặt hàng</th><th scope="col">Đặt / đã giao / còn lại</th><th scope="col" class="money">Thành tiền</th></tr></thead><tbody>${order.items.map(item => `<tr><td><span class="item-name">${escapeHtml(item.name)}</span><span class="cell-sub">${escapeHtml(item.sku)}</span></td><td>${formatQty(orderedQty(item))} / ${formatQty(Number(item.shippedQty) || 0)} / ${formatQty(remainingQty(item))}</td><td class="money">${money(orderedQty(item) * item.unit)}</td></tr>`).join('')}</tbody></table></div>
+          <div class="totals"><div class="total-line"><span>Tạm tính</span><strong class="amount">${money(order.amount + order.discount)}</strong></div><div class="total-line"><span>Chiết khấu</span><strong class="amount">− ${money(order.discount)}</strong></div><div class="total-line grand-total"><span>Tổng tiền</span><strong class="amount">${money(order.amount)}</strong></div></div>
+          ${shippingForm}<h3 class="section-title">Lịch sử giao hàng</h3><div class="history">${history}</div>`;
+      }
+      function renderState() {
+        workspace.classList.remove('hidden');
+        workspace.setAttribute('aria-busy', 'false');
+        if (viewMode !== 'success') { notice.classList.add('hidden'); notice.textContent = ''; }
+        if (viewMode === 'forbidden') {
+          workspace.innerHTML = '<div class="state-panel"><span class="state-symbol" aria-hidden="true">403</span><h2>Bạn không có quyền xem danh sách này</h2><p>Liên hệ quản trị viên ERP nếu bạn cần quyền truy cập.</p></div>';
+          bindWorkspace();
+          document.getElementById('new-order').classList.add('hidden');
+          return;
+        }
+        if (viewMode === 'loading') {
+          workspace.setAttribute('aria-busy', 'true');
+          workspace.innerHTML = '<div class="state-panel" aria-label="Đang tải đơn bán"><div class="skeleton-group"><div class="skeleton skeleton-42"></div><div class="skeleton skeleton-78"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div></div>';
+          bindWorkspace();
+          document.getElementById('new-order').classList.remove('hidden');
+          return;
+        }
+        workspace.innerHTML = '<div class="list-pane" id="list-pane"><div class="toolbar"><label class="search-wrap"><span class="search-mark" aria-hidden="true">⌕</span><span class="screen-reader-only">Tìm theo mã đơn hoặc khách hàng</span><input id="search" class="search" type="search" placeholder="Tìm mã đơn, khách hàng…" autocomplete="off"></label><label><span class="screen-reader-only">Lọc theo kho</span><select id="warehouse-filter" class="filter"><option value="">Tất cả kho</option><option>Kho Hà Nội</option><option>Kho Hồ Chí Minh</option></select></label></div><div class="tabs" role="tablist" aria-label="Lọc trạng thái đơn bán"><button class="tab" role="tab" aria-selected="true" data-status="all" type="button">Tất cả</button><button class="tab" role="tab" aria-selected="false" data-status="DRAFT" type="button">Nháp</button><button class="tab" role="tab" aria-selected="false" data-status="PENDING_APPROVAL" type="button">Chờ duyệt</button><button class="tab" role="tab" aria-selected="false" data-status="CONFIRMED" type="button">Đã xác nhận</button><button class="tab" role="tab" aria-selected="false" data-status="SHIPPED" type="button">Đã giao</button></div><div id="table-state" class="table-wrap"><table class="orders-table"><thead><tr><th>Mã đơn / ngày tạo</th><th>Khách hàng</th><th>Kho</th><th><button class="th-sort" id="sort-amount" type="button">Tổng tiền ↕</button></th><th>Trạng thái</th></tr></thead><tbody id="orders-body"></tbody></table></div><div class="pagination"><span id="result-count"></span><div class="page-actions"><button class="button" disabled>‹</button><button class="button" disabled>›</button></div></div></div><div class="detail-pane" id="detail-pane"></div>';
+        bindWorkspace();
+        document.getElementById('new-order').classList.remove('hidden');
+        syncTabs();
+        if (viewMode === 'empty') {
+          tableState.innerHTML = '<div class="state-panel"><span class="state-symbol" aria-hidden="true">0</span><h2>Chưa có đơn bán</h2><p>Tạo đơn đầu tiên để bắt đầu theo dõi quy trình bán hàng.</p><button class="button button-primary" data-create-first type="button">Tạo đơn bán</button></div>';
+          detail.innerHTML = '';
+          return;
+        }
+        if (viewMode === 'error') {
+          tableState.innerHTML = '<div class="state-panel"><span class="state-symbol" aria-hidden="true">!</span><h2>Không tải được danh sách</h2><p>Đã xảy ra lỗi khi tải đơn bán. Thử lại sau.</p><button class="button" data-retry type="button">Thử tải lại</button></div>';
+          detail.innerHTML = '';
+          return;
+        }
+        renderTable();
+        if (viewMode === 'success') showNotice('success', 'Đã lưu thay đổi trong prototype.');
+      }
+      function showNotice(kind, message) {
+        notice.className = `alert ${kind === 'success' ? 'alert-success' : 'alert-error'}`;
+        notice.textContent = message;
+        notice.classList.remove('hidden');
+      }
+      function resetPrototype() { viewMode = 'normal'; document.getElementById('preview-state').value = 'normal'; renderState(); }
+      function showForm(order = null) {
+        if (viewMode !== 'normal') { viewMode = 'normal'; document.getElementById('preview-state').value = 'normal'; renderState(); }
+        document.getElementById('new-order').classList.remove('hidden');
+        const productOptions = products.map(product => `<option value="${product.sku}" data-price="${product.unit}" ${order?.items[0]?.sku === product.sku ? 'selected' : ''}>${escapeHtml(product.name)} · ${money(product.unit)}</option>`).join('');
+        const quantity = Number(order?.items[0]?.qty.match(/^\d+/)?.[0] || 1);
+        detail.innerHTML = `<form class="form-pane" id="draft-form"><input type="hidden" name="editingId" value="${escapeHtml(order?.id || '')}"><h2>${order ? 'Sửa đơn nháp' : 'Tạo đơn bán'}</h2><p class="form-intro">${order ? `Đang sửa ${escapeHtml(order.id)}.` : 'Đơn được lưu ở trạng thái nháp.'} Giá bán là dữ liệu mẫu của prototype.</p><div class="form-grid"><div class="field field-wide"><label for="customer-name">Khách hàng <span aria-hidden="true">*</span></label><input id="customer-name" name="customer" required placeholder="Tên khách hàng" value="${escapeHtml(order?.customer || '')}"></div><div class="field"><label for="warehouse-name">Kho xuất <span aria-hidden="true">*</span></label><select id="warehouse-name" name="warehouse" required><option value="">Chọn kho</option><option ${order?.warehouse === 'Kho Hà Nội' ? 'selected' : ''}>Kho Hà Nội</option><option ${order?.warehouse === 'Kho Hồ Chí Minh' ? 'selected' : ''}>Kho Hồ Chí Minh</option></select></div><div class="field"><label for="draft-product">Sản phẩm <span aria-hidden="true">*</span></label><select id="draft-product" name="product" required><option value="">Chọn sản phẩm</option>${productOptions}</select></div><div class="field"><label for="draft-quantity">Số lượng <span aria-hidden="true">*</span></label><input id="draft-quantity" name="quantity" type="number" min="1" max="99999" step="1" value="${quantity}" required></div><div class="field"><label for="discount">Chiết khấu (₫)</label><input id="discount" name="discount" type="number" min="0" step="1" value="${order?.discount || 0}"></div><div class="field"><label for="draft-total">Tổng tiền dự kiến</label><input id="draft-total" value="—" readonly aria-live="polite"></div><div class="field field-wide"><label for="order-note">Ghi chú</label><textarea id="order-note" name="note" placeholder="Thông tin phục vụ xử lý đơn">${escapeHtml(order?.note || '')}</textarea></div></div><div class="form-actions"><button class="button button-primary" type="submit">Lưu nháp</button><button class="button" type="button" data-cancel-form>Hủy</button></div></form>`;
+        const updateEstimate = () => {
+          const product = document.getElementById('draft-product');
+          const price = Number(product.selectedOptions[0]?.dataset.price || 0);
+          const quantity = Number(document.getElementById('draft-quantity').value || 0);
+          const discountInput = document.getElementById('discount');
+          discountInput.setCustomValidity('');
+          const subtotal = price * quantity;
+          discountInput.max = String(subtotal);
+          const discount = Number(discountInput.value || 0);
+          document.getElementById('draft-total').value = subtotal ? money(Math.max(0, subtotal - discount)) : '—';
+        };
+        detail.querySelectorAll('#draft-product, #draft-quantity, #discount').forEach(field => field.addEventListener('input', updateEstimate));
+        updateEstimate();
+      }
+      document.addEventListener('click', event => {
+        const rowButton = event.target.closest('[data-order]');
+        const row = event.target.closest('[data-row-order]');
+        if (rowButton || row) { selectedId = rowButton?.dataset.order || row.dataset.rowOrder; renderTable(); return; }
+        const tab = event.target.closest('[data-status]');
+        if (tab) { activeStatus = tab.dataset.status; syncTabs(); renderTable(); return; }
+        if (event.target.closest('#new-order, [data-create-first]')) { showForm(); return; }
+        if (event.target.closest('[data-clear-filters]')) { document.getElementById('search').value = ''; document.getElementById('warehouse-filter').value = ''; activeStatus = 'all'; renderTable(); return; }
+        if (event.target.closest('[data-retry]')) { resetPrototype(); return; }
+        if (event.target.closest('[data-cancel-form]')) { renderDetail(orders.find(order => order.id === selectedId)); return; }
+        const actionButton = event.target.closest('[data-action]');
+        if (actionButton) {
+          const order = orders.find(item => item.id === selectedId);
+          if (actionButton.dataset.action === 'ship') { shippingOrderId = order.id; renderTable(); return; }
+          if (actionButton.dataset.action === 'cancel-shipment') { shippingOrderId = null; renderTable(); return; }
+          if (actionButton.dataset.action === 'post-shipment') {
+            const shipmentItems = [...detail.querySelectorAll('[data-ship-sku]')].map(input => ({ sku: input.dataset.shipSku, qty: Number(input.value) }));
+            const invalid = shipmentItems.some(line => !Number.isFinite(line.qty) || line.qty < 0 || line.qty > remainingQty(order.items.find(item => item.sku === line.sku)));
+            if (invalid || !shipmentItems.some(line => line.qty > 0)) { showNotice('error', 'Nhập ít nhất một số lượng lớn hơn 0 và không vượt quá số còn phải giao.'); return; }
+            const postedItems = shipmentItems.filter(line => line.qty > 0);
+            order.shipments = order.shipments || [];
+            order.shipments.push({ number: `SH-2026-${String(nextShipmentNumber++).padStart(4, '0')}`, date: '20/10/2026', items: postedItems });
+            postedItems.forEach(line => { const item = order.items.find(entry => entry.sku === line.sku); item.shippedQty = Math.round(((Number(item.shippedQty) || 0) + line.qty) * 1000) / 1000; });
+            order.status = order.items.every(item => remainingQty(item) === 0) ? 'SHIPPED' : 'PARTIALLY_SHIPPED';
+            shippingOrderId = null;
+            showNotice('success', `Đã mô phỏng ${order.shipments.at(-1).number} trong bộ nhớ trình duyệt. Chưa ghi dữ liệu hoặc cập nhật kho thật.`);
+            renderTable();
+            return;
+          }
+          if (actionButton.dataset.action === 'approve') { order.status = 'CONFIRMED'; showNotice('success', `Đã xác nhận ${order.id} trong prototype.`); }
+          if (actionButton.dataset.action === 'return') { order.status = 'DRAFT'; showNotice('success', `Đã trả ${order.id} về nháp trong prototype.`); }
+          if (actionButton.dataset.action === 'submit') { order.status = 'PENDING_APPROVAL'; showNotice('success', `Đã gửi ${order.id} chờ duyệt trong prototype.`); }
+          if (actionButton.dataset.action === 'edit') { showForm(order); return; }
+          renderTable();
+        }
+      });
+      document.addEventListener('keydown', event => {
+        const row = event.target.closest('[data-order]');
+        if (row && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectedId = row.dataset.order; renderTable(); }
+        const tab = event.target.closest('.tab');
+        if (tab && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault();
+          const tabs = [...document.querySelectorAll('.tab')];
+          const index = tabs.indexOf(tab);
+          const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+          activeStatus = tabs[nextIndex].dataset.status;
+          syncTabs(tabs[nextIndex]);
+          renderTable();
+        }
+      });
+      document.addEventListener('input', event => { if (event.target.id === 'search') renderTable(); });
+      document.addEventListener('change', event => {
+        if (event.target.id === 'warehouse-filter') renderTable();
+        if (event.target.id === 'preview-state') { viewMode = event.target.value; renderState(); }
+      });
+      document.addEventListener('click', event => {
+        if (event.target.closest('#sort-amount')) { sortDescending = !sortDescending; renderTable(); }
+      });
+      document.addEventListener('submit', event => {
+        if (event.target.id !== 'draft-form') return;
+        event.preventDefault();
+        const values = new FormData(event.target);
+        const productSelect = document.getElementById('draft-product');
+        const productOption = productSelect.selectedOptions[0];
+        const quantity = Number(values.get('quantity'));
+        const unit = Number(productOption.dataset.price);
+        const discount = Number(values.get('discount')) || 0;
+        const subtotal = quantity * unit;
+        if (discount > subtotal) { document.getElementById('discount').setCustomValidity('Chiết khấu không được vượt quá tiền hàng.'); document.getElementById('discount').reportValidity(); return; }
+        document.getElementById('discount').setCustomValidity('');
+        const editingId = values.get('editingId');
+        const lastNumber = Math.max(...orders.map(order => Number(order.id.slice(-4))));
+        const itemName = productOption.textContent.split(' · ')[0];
+        const updated = { id: editingId || `SO-2026-${String(lastNumber + 1).padStart(4, '0')}`, customer: values.get('customer'), warehouse: values.get('warehouse'), date: editingId ? orders.find(order => order.id === editingId).date : '20/10/2026', amount: subtotal - discount, discount, tax: 0, status: 'DRAFT', creator: editingId ? orders.find(order => order.id === editingId).creator : 'Nguyễn An', note: values.get('note'), items: [{ name: itemName, sku: productSelect.value, qty: `${quantity} cái`, unit }] };
+        if (editingId) { orders[orders.findIndex(order => order.id === editingId)] = updated; }
+        else { orders.unshift(updated); }
+        selectedId = updated.id; activeStatus = 'all';
+        showNotice('success', `Đã lưu ${updated.id} ở trạng thái nháp. Đây là thay đổi cục bộ của prototype.`);
+        renderTable();
+      });
+      if (viewMode === 'empty' || viewMode === 'error' || viewMode === 'forbidden' || viewMode === 'loading' || viewMode === 'success') document.getElementById('preview-state').value = viewMode;
+      renderState();
+    })();
+  </script>
+</body>
+</html>

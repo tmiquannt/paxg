@@ -1,0 +1,10 @@
+{
+  "name": "internal/mini-erp",
+  "description": "Internal WordPress Mini ERP v1.1 — not legal e-invoicing",
+  "type": "project",
+  "require": {"php": ">=8.3", "ext-bcmath": "*", "ext-mysqli": "*"},
+  "require-dev": {"phpunit/phpunit": "^11.5"},
+  "autoload": {"psr-4": {"MiniERP\\": "wp-content/plugins/mini-erp/src/"}},
+  "scripts": {"test": "phpunit", "test:unit": "phpunit --testsuite Unit"},
+  "config": {"sort-packages": true, "allow-plugins": {}}
+}

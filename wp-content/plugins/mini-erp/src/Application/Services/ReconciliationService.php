@@ -1,0 +1,51 @@
+<?php
+declare(strict_types=1);
+
+namespace MiniERP\Application\Services;
+
+use DomainException;
+use MiniERP\Domain\ExactAmounts;
+use MiniERP\Infrastructure\Audit\AuditLogger;
+use MiniERP\Infrastructure\Database\TransactionManager;
+use MiniERP\Security\Actor;
+use DateTimeImmutable;
+use DateTimeZone;
+use wpdb;
+
+/** Manual account reconciliation. A batch closes only when every ERP movement matches exactly. */
+final class ReconciliationService
+{
+    public function __construct(private readonly wpdb $db,private readonly TransactionManager $transactions,private readonly AuditLogger $audit){}
+
+    public function create(Actor $actor,int $accountId,string $from,string $to,string $opening,string $closing,string $note=''):int
+    {
+        if(!$actor->can('erp_reconciliations_create')||$accountId<1||!in_array($accountId,$actor->cashAccountIds,true)||mb_strlen($note)>1000)throw new DomainException('Thông tin đối soát không hợp lệ hoặc tài khoản chưa được phân quyền.');$this->date($from);$this->date($to);if($to<$from)throw new DomainException('Khoảng đối soát không hợp lệ.');$opening=ExactAmounts::money($opening);$closing=ExactAmounts::money($closing);$accounts=$this->table('erp_cash_accounts');$recs=$this->table('erp_reconciliations');
+        return $this->transactions->run(function(TransactionManager $tx)use($actor,$accountId,$from,$to,$opening,$closing,$note,$accounts,$recs):int{$found=$tx->fetchAll("SELECT id FROM {$accounts} WHERE id=%d AND status='ACTIVE' FOR UPDATE",[$accountId]);if($found===[])throw new DomainException('Tài khoản tiền chưa được kích hoạt.');$overlap=$tx->fetchAll("SELECT id FROM {$recs} WHERE cash_account_id=%d AND status IN ('DRAFT','CLOSED') AND period_from<=%s AND period_to>=%s FOR UPDATE",[$accountId,$to,$from]);if($overlap!==[])throw new DomainException('Đã có batch đối soát trùng khoảng thời gian.');$tmp='TMP-'.strtoupper(str_replace('-','',$this->uuid()));$tx->execute("INSERT INTO {$recs} (rec_no,cash_account_id,period_from,period_to,statement_opening_vnd,statement_closing_vnd,status,created_by,note) VALUES (%s,%d,%s,%s,%s,%s,'DRAFT',%d,%s)",[$tmp,$accountId,$from,$to,$opening,$closing,$actor->id,$note]);$id=$tx->insertId();$tx->execute("UPDATE {$recs} SET rec_no=%s WHERE id=%d",['REC-'.gmdate('Y').'-'.str_pad((string)$id,8,'0',STR_PAD_LEFT),$id]);$this->audit->record($tx,$this->uuid(),$actor->id,'reconciliation.created','reconciliation',$id,'success',[],['status'=>'DRAFT']);return $id;});
+    }
+
+    public function match(Actor $actor,int $reconciliationId,int $movementId,string $externalReference,string $externalDirection,string $externalAmount):void
+    {
+        if(!$actor->can('erp_reconciliations_create')||$reconciliationId<1||$movementId<1||mb_strlen($externalReference)>128||!in_array($externalDirection,['IN','OUT'],true))throw new DomainException('Thông tin đối soát không hợp lệ.');$amount=ExactAmounts::money($externalAmount);$recs=$this->table('erp_reconciliations');$accounts=$this->table('erp_cash_accounts');$movements=$this->table('erp_cash_movements');$items=$this->table('erp_reconciliation_items');
+        $this->transactions->run(function(TransactionManager $tx)use($actor,$reconciliationId,$movementId,$externalReference,$externalDirection,$amount,$recs,$accounts,$movements,$items):void{$refs=$tx->fetchAll("SELECT cash_account_id FROM {$recs} WHERE id=%d",[$reconciliationId]);if($refs===[])throw new DomainException('Không tìm thấy batch đối soát.');$accountId=(int)$refs[0]['cash_account_id'];if(!in_array($accountId,$actor->cashAccountIds,true))throw new DomainException('Tài khoản chưa được phân quyền.');$tx->fetchAll("SELECT id FROM {$accounts} WHERE id=%d FOR UPDATE",[$accountId]);$batches=$tx->fetchAll("SELECT period_from,period_to,status FROM {$recs} WHERE id=%d AND cash_account_id=%d FOR UPDATE",[$reconciliationId,$accountId]);$batch=$batches[0]??null;if(!is_array($batch)||$batch['status']!=='DRAFT')throw new DomainException('Batch không còn ở trạng thái nháp.');$from=$this->utcStart((string)$batch['period_from']);$to=$this->utcEndExclusive((string)$batch['period_to']);$movementRows=$tx->fetchAll("SELECT direction,amount_vnd,occurred_at FROM {$movements} WHERE id=%d AND cash_account_id=%d FOR UPDATE",[$movementId,$accountId]);$movement=$movementRows[0]??null;if(!is_array($movement)||(string)$movement['occurred_at']<$from||(string)$movement['occurred_at']>=$to||(string)$movement['amount_vnd']!==$amount||(string)$movement['direction']!==$externalDirection)throw new DomainException('Dòng tiền không thuộc kỳ này hoặc chiều/số tiền không khớp.');$tx->execute("INSERT INTO {$items} (reconciliation_id,cash_movement_id,external_reference,external_amount_vnd,matched_by,matched_at) VALUES (%d,%d,NULLIF(%s,''),%s,%d,%s)",[$reconciliationId,$movementId,trim($externalReference),$amount,$actor->id,$this->now()]);$this->audit->record($tx,$this->uuid(),$actor->id,'reconciliation.movement_matched','reconciliation',$reconciliationId,'success');});
+    }
+
+    public function close(Actor $actor,int $reconciliationId):void
+    {
+        if(!$actor->can('erp_reconciliations_close')||$reconciliationId<1)throw new DomainException('Bạn không có quyền chốt đối soát.');$recs=$this->table('erp_reconciliations');$accounts=$this->table('erp_cash_accounts');$movements=$this->table('erp_cash_movements');$items=$this->table('erp_reconciliation_items');
+        $candidateAccount=$this->db->get_var($this->db->prepare("SELECT cash_account_id FROM {$recs} WHERE id=%d",$reconciliationId));$accountId=filter_var($candidateAccount,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($accountId===false||!in_array((int)$accountId,$actor->cashAccountIds,true))throw new DomainException('Không tìm thấy batch đối soát hoặc tài khoản chưa được phân quyền.');$accountId=(int)$accountId;
+        $this->transactions->run(function(TransactionManager $tx)use($actor,$reconciliationId,$accountId,$recs,$accounts,$movements,$items):void{
+            // Take the account serialization lock before any consistent read. This makes
+            // the later ledger snapshot include any posting that committed while we waited.
+            $tx->fetchAll("SELECT id FROM {$accounts} WHERE id=%d FOR UPDATE",[$accountId]);
+            $rows=$tx->fetchAll("SELECT period_from,period_to,statement_opening_vnd,statement_closing_vnd,status,created_by FROM {$recs} WHERE id=%d AND cash_account_id=%d FOR UPDATE",[$reconciliationId,$accountId]);$batch=$rows[0]??null;if(!is_array($batch)||$batch['status']!=='DRAFT'||(int)$batch['created_by']===$actor->id)throw new DomainException('Batch không còn chờ chốt hoặc người tạo phải khác người duyệt.');
+            $overlap=$tx->fetchAll("SELECT id FROM {$recs} WHERE cash_account_id=%d AND id<>%d AND status='CLOSED' AND period_from<=%s AND period_to>=%s FOR UPDATE",[$accountId,$reconciliationId,$batch['period_to'],$batch['period_from']]);if($overlap!==[])throw new DomainException('Kỳ này đã có đối soát được chốt.');
+            $from=$this->utcStart((string)$batch['period_from']);$to=$this->utcEndExclusive((string)$batch['period_to']);$counts=$tx->fetchAll("SELECT (SELECT COUNT(*) FROM {$movements} m WHERE m.cash_account_id=%d AND m.occurred_at>=%s AND m.occurred_at<%s) AS movement_count,(SELECT COUNT(*) FROM {$items} ri JOIN {$movements} m ON m.id=ri.cash_movement_id WHERE ri.reconciliation_id=%d AND m.cash_account_id=%d AND m.occurred_at>=%s AND m.occurred_at<%s) AS matched_count,(SELECT COALESCE(SUM(CASE WHEN m.direction='IN' THEN m.amount_vnd ELSE -m.amount_vnd END),0) FROM {$movements} m WHERE m.cash_account_id=%d AND m.occurred_at<%s) AS opening_balance,(SELECT COALESCE(SUM(CASE WHEN m.direction='IN' THEN m.amount_vnd ELSE -m.amount_vnd END),0) FROM {$movements} m WHERE m.cash_account_id=%d AND m.occurred_at>=%s AND m.occurred_at<%s) AS period_flow,(SELECT opening_balance_vnd FROM {$accounts} WHERE id=%d) AS account_opening",[$accountId,$from,$to,$reconciliationId,$accountId,$from,$to,$accountId,$from,$accountId,$from,$to,$accountId]);$c=$counts[0]??[];$erpOpening=bcadd((string)($c['account_opening']??'0'),(string)($c['opening_balance']??'0'),0);$erpClosing=bcadd($erpOpening,(string)($c['period_flow']??'0'),0);if((int)($c['movement_count']??-1)!==(int)($c['matched_count']??-2)||bccomp($erpOpening,(string)$batch['statement_opening_vnd'],0)!==0||bccomp($erpClosing,(string)$batch['statement_closing_vnd'],0)!==0)throw new DomainException('Không thể chốt: còn giao dịch chưa đối soát hoặc số dư sao kê khác sổ quỹ.');$now=$this->now();$tx->execute("UPDATE {$recs} SET status='CLOSED',closed_by=%d,closed_at=%s WHERE id=%d AND status='DRAFT'",[$actor->id,$now,$reconciliationId]);$this->audit->record($tx,$this->uuid(),$actor->id,'reconciliation.closed','reconciliation',$reconciliationId,'success',['status'=>'DRAFT'],['status'=>'CLOSED']);});
+    }
+
+    private function date(string $value):void{$d=DateTimeImmutable::createFromFormat('!Y-m-d',$value,new DateTimeZone('UTC'));$e=DateTimeImmutable::getLastErrors();if(!$d||($e!==false&&($e['warning_count']||$e['error_count']))||$d->format('Y-m-d')!==$value)throw new DomainException('Ngày đối soát không hợp lệ.');}
+    private function utcStart(string $date):string{$this->date($date);return (new DateTimeImmutable($date.' 00:00:00',new DateTimeZone('Asia/Ho_Chi_Minh')))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');}
+    private function utcEndExclusive(string $date):string{$this->date($date);return (new DateTimeImmutable($date,new DateTimeZone('Asia/Ho_Chi_Minh')))->modify('+1 day')->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');}
+    private function now():string{return (new DateTimeImmutable('now',new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');}
+    private function table(string $suffix):string{if(!preg_match('/\Aerp_[a-z_]+\z/D',$suffix)||!preg_match('/\A[A-Za-z0-9_]{1,32}\z/D',$this->db->prefix))throw new DomainException('Cấu hình bảng dữ liệu không hợp lệ.');return '`'.$this->db->prefix.$suffix.'`';}
+    private function uuid():string{if(function_exists('wp_generate_uuid4'))return wp_generate_uuid4();$bytes=random_bytes(16);$bytes[6]=chr((ord($bytes[6])&15)|64);$bytes[8]=chr((ord($bytes[8])&63)|128);return vsprintf('%s%s-%s-%s-%s-%s%s%s',str_split(bin2hex($bytes),4));}
+}
