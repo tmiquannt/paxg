@@ -175,6 +175,8 @@ case "${1:-help}" in
   schema-smoke) docker compose exec -T wordpress php /opt/erp-scripts/test-master-schema.php ;;
   catalog-smoke) docker compose exec -T wordpress php /opt/erp-scripts/test-catalog.php ;;
   catalog-page-smoke) docker compose exec -T wordpress php /opt/erp-scripts/test-catalog-page.php ;;
+  seed-demo-dry-run) docker compose exec -T wordpress php /opt/erp-scripts/seed-demo.php --dry-run ;;
+  seed-demo) docker compose exec -T wordpress php /opt/erp-scripts/seed-demo.php ;;
   master-form-smoke) docker compose exec -T wordpress php /opt/erp-scripts/test-master-form-pages.php ;;
   master-form-recovery-smoke) node scripts/test-master-form-recovery.js ;;
   sales-smoke) docker compose exec -T wordpress php /opt/erp-scripts/test-sales-workflow.php ;;
@@ -188,5 +190,5 @@ case "${1:-help}" in
   user-access-smoke) docker compose exec -T wordpress php /opt/erp-scripts/test-user-access-pagination.php ;;
   user-access-form-smoke) node scripts/test-user-access-form-recovery.js ;;
   logs) docker compose logs --tail 60 database wordpress ;;
-    *) printf '%s\n' 'Usage: bash scripts/local.sh {start|stop|down|backup|restore <backup-name>|health|test|smoke|schema-smoke|catalog-smoke|catalog-page-smoke|master-form-smoke|master-form-recovery-smoke|sales-smoke|inventory-smoke|reports-smoke|cash-page-smoke|ajax-smoke|finance-form-smoke|inventory-form-smoke|order-editor-smoke|user-access-smoke|user-access-form-smoke|logs}'; exit 2 ;;
+    *) printf '%s\n' 'Usage: bash scripts/local.sh {start|stop|down|backup|restore <backup-name>|health|test|smoke|schema-smoke|catalog-smoke|catalog-page-smoke|seed-demo-dry-run|seed-demo|master-form-smoke|master-form-recovery-smoke|sales-smoke|inventory-smoke|reports-smoke|cash-page-smoke|ajax-smoke|finance-form-smoke|inventory-form-smoke|order-editor-smoke|user-access-smoke|user-access-form-smoke|logs}'; exit 2 ;;
 esac

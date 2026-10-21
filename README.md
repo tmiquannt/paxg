@@ -5,6 +5,8 @@ Local development platform runs on Docker, WordPress login and role-scoped ERP s
 ```sh
 bash scripts/local.sh start
 bash scripts/local.sh health
+bash scripts/local.sh seed-demo-dry-run
+bash scripts/local.sh seed-demo
 bash scripts/local.sh test
 bash scripts/local.sh smoke
 bash scripts/local.sh stop
@@ -15,3 +17,5 @@ Open [http://127.0.0.1:18088/](http://127.0.0.1:18088/) for the ERP app. It uses
 `bash scripts/local.sh start` installs the plugin's locked PDF dependency from `wp-content/plugins/mini-erp/composer.lock`. If packaging the plugin manually, include the generated `vendor/` directory or run `composer install --working-dir=wp-content/plugins/mini-erp --no-dev` before activation. Internal cash accounts are separate records for each cash drawer or bank account; receipts, payments and expenses post to the assigned record and its cash ledger.
 
 See [local setup, persistence and troubleshooting](docs/local-environment.md), [requirements](SPEC.md), and [implementation/acceptance status](docs/tasks.md). All application/database state remains under `.runtime/` in this project. No production or external hosting is configured.
+
+Windows/XAMPP prerequisites and setup are documented in [docs/windows-xampp.md](docs/windows-xampp.md). The bundled XAMPP PHP/MariaDB versions may not meet Mini ERP's PHP 8.3+/MySQL 8 requirement.
